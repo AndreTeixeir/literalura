@@ -6,7 +6,7 @@
 O LiterAlura é um desafio do programa de formação em Java da Alura. O projeto consiste em desenvolver um catálogo de livros interativo que funciona via console. A aplicação consome a API gratuita Gutendex para buscar livros e autores, e persiste esses dados em um banco de dados PostgreSQL para futuras consultas.
 
 ## 🛠️ Tecnologias Utilizadas
-- **Java 17:** Linguagem de programação principal.
+- **Java 21:** Linguagem de programação principal.
 - **Spring Boot:** Framework para criação de aplicações Java robustas.
 - **Spring Data JPA:** Para persistência de dados e comunicação com o banco de dados.
 - **PostgreSQL:** Banco de dados relacional para armazenamento dos livros e autores.
