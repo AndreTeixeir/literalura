@@ -67,12 +67,11 @@ public class LiteraluraApplication implements CommandLineRunner {
 					listRegisteredAuthors();
 					break;
 				case 4:
-					// *** MUDANÇA AQUI ***
 					listAuthorsAliveInYear();
 					break;
 				case 5:
-					// listBooksByLanguage();
-					System.out.println("Funcionalidade ainda não implementada.");
+					// *** MUDANÇA AQUI ***
+					listBooksByLanguage();
 					break;
 				case 0:
 					System.out.println("Saindo do LiterAlura. Até a próxima!");
@@ -87,40 +86,30 @@ public class LiteraluraApplication implements CommandLineRunner {
 		ApiConsumer consumer = new ApiConsumer();
 		IDataConverter converter = new DataConverter();
 		Scanner scanner = new Scanner(System.in);
-
 		System.out.println("Digite o título do livro que você deseja buscar:");
 		var bookTitle = scanner.nextLine();
 		var searchUrl = "https://gutendex.com/books/?search=" + bookTitle.replace(" ", "%20");
-
 		System.out.println("Buscando...");
 		String jsonResponse = consumer.fetchData(searchUrl);
-
 		ApiResponseDTO apiResponse = converter.getData(jsonResponse, ApiResponseDTO.class);
-
 		if (apiResponse != null && apiResponse.results() != null && !apiResponse.results().isEmpty()) {
 			BookDTO foundBookDTO = apiResponse.results().getFirst();
 			Optional<Book> existingBook = bookRepository.findByTitleContainingIgnoreCase(foundBookDTO.title());
-
 			if (existingBook.isPresent()) {
 				System.out.println("Este livro já está cadastrado no banco de dados.");
 			} else {
 				Author author;
 				AuthorDTO authorDTO = foundBookDTO.authors().getFirst();
 				Optional<Author> existingAuthor = authorRepository.findByNameContainingIgnoreCase(authorDTO.name());
-
 				if (existingAuthor.isPresent()) {
 					author = existingAuthor.get();
 				} else {
 					author = new Author(authorDTO.name(), authorDTO.birthYear(), authorDTO.deathYear());
 					authorRepository.save(author);
 				}
-
 				Book book = new Book(foundBookDTO.title(), foundBookDTO.languages().getFirst(), foundBookDTO.downloadCount(), author);
 				bookRepository.save(book);
-
-				System.out.println("\n--- Livro salvo com sucesso! ---");
-				System.out.println(book);
-				System.out.println("--------------------------------\n");
+				System.out.println("\n--- Livro salvo com sucesso! ---\n" + book + "\n--------------------------------\n");
 			}
 		} else {
 			System.out.println("Nenhum livro encontrado com este título.");
@@ -133,14 +122,14 @@ public class LiteraluraApplication implements CommandLineRunner {
 			System.out.println("\nNenhum livro cadastrado no banco de dados.\n");
 		} else {
 			System.out.println("\n--- Livros Registrados ---");
-			books.forEach(book -> {
-				System.out.println("--------------------------");
-				System.out.println(" Título: " + book.getTitle());
-				System.out.println(" Autor: " + book.getAuthor().getName());
-				System.out.println(" Idioma: " + book.getLanguage());
-				System.out.println(" Downloads: " + book.getDownloadCount());
-			});
-			System.out.println("--------------------------\n");
+			books.forEach(b -> System.out.println(
+					"--------------------------\n" +
+							" Título: " + b.getTitle() + "\n" +
+							" Autor: " + b.getAuthor().getName() + "\n" +
+							" Idioma: " + b.getLanguage() + "\n" +
+							" Downloads: " + b.getDownloadCount() + "\n" +
+							"--------------------------\n"
+			));
 		}
 	}
 
@@ -150,40 +139,63 @@ public class LiteraluraApplication implements CommandLineRunner {
 			System.out.println("\nNenhum autor cadastrado no banco de dados.\n");
 		} else {
 			System.out.println("\n--- Autores Registrados ---");
-			authors.forEach(author -> {
-				System.out.println("---------------------------");
-				System.out.println("Autor: " + author.getName());
-				System.out.println("Ano de Nascimento: " + author.getBirthYear());
-				System.out.println("Ano de Falecimento: " + author.getDeathYear());
-				List<String> bookTitles = author.getBooks().stream()
-						.map(Book::getTitle)
-						.toList();
-				System.out.println("Livros: " + bookTitles);
+			authors.forEach(a -> {
+				List<String> bookTitles = a.getBooks().stream().map(Book::getTitle).toList();
+				System.out.println(
+						"---------------------------\n" +
+								"Autor: " + a.getName() + "\n" +
+								"Ano de Nascimento: " + a.getBirthYear() + "\n" +
+								"Ano de Falecimento: " + a.getDeathYear() + "\n" +
+								"Livros: " + bookTitles + "\n" +
+								"---------------------------\n"
+				);
 			});
-			System.out.println("---------------------------\n");
 		}
 	}
 
-	// *** NOVO MÉTODO ADICIONADO AQUI ***
 	private void listAuthorsAliveInYear() {
 		Scanner scanner = new Scanner(System.in);
 		System.out.println("\nDigite o ano para pesquisar os autores vivos:");
 		var year = scanner.nextInt();
-		scanner.nextLine(); // Consome a quebra de linha
-
+		scanner.nextLine();
 		List<Author> authors = authorRepository.findAuthorsAliveInYear(year);
-
 		if (authors.isEmpty()) {
 			System.out.println("\nNenhum autor vivo encontrado para o ano de " + year + ".\n");
 		} else {
 			System.out.println("\n--- Autores Vivos em " + year + " ---");
-			authors.forEach(author -> {
-				System.out.println("---------------------------");
-				System.out.println("Autor: " + author.getName());
-				System.out.println("Ano de Nascimento: " + author.getBirthYear());
-				System.out.println("Ano de Falecimento: " + author.getDeathYear());
-			});
-			System.out.println("---------------------------\n");
+			authors.forEach(a -> System.out.println(
+					"---------------------------\n" +
+							"Autor: " + a.getName() + "\n" +
+							"Ano de Nascimento: " + a.getBirthYear() + "\n" +
+							"Ano de Falecimento: " + a.getDeathYear() + "\n" +
+							"---------------------------\n"
+			));
+		}
+	}
+
+	// *** NOVO MÉTODO ADICIONADO AQUI ***
+	private void listBooksByLanguage() {
+		Scanner scanner = new Scanner(System.in);
+		System.out.println("""
+                Digite o idioma para a busca:
+                es - espanhol
+                en - inglês
+                fr - francês
+                pt - português
+                """);
+		var language = scanner.nextLine();
+		List<Book> books = bookRepository.findByLanguage(language);
+
+		if (books.isEmpty()) {
+			System.out.println("\nNenhum livro encontrado para o idioma '" + language + "'.\n");
+		} else {
+			System.out.println("\n--- Livros em '" + language + "' ---");
+			books.forEach(b -> System.out.println(
+					"--------------------------\n" +
+							" Título: " + b.getTitle() + "\n" +
+							" Autor: " + b.getAuthor().getName() + "\n" +
+							"--------------------------\n"
+			));
 		}
 	}
 }
