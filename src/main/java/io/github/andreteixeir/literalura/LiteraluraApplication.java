@@ -61,12 +61,11 @@ public class LiteraluraApplication implements CommandLineRunner {
 					searchBookByTitle();
 					break;
 				case 2:
-					// *** MUDANÇA AQUI ***
 					listRegisteredBooks();
 					break;
 				case 3:
-					// listRegisteredAuthors();
-					System.out.println("Funcionalidade ainda não implementada.");
+					// *** MUDANÇA AQUI ***
+					listRegisteredAuthors();
 					break;
 				case 4:
 					// listAuthorsAliveInYear();
@@ -131,7 +130,6 @@ public class LiteraluraApplication implements CommandLineRunner {
 		}
 	}
 
-	// *** NOVO MÉTODO ADICIONADO AQUI ***
 	private void listRegisteredBooks() {
 		List<Book> books = bookRepository.findAll();
 
@@ -147,6 +145,30 @@ public class LiteraluraApplication implements CommandLineRunner {
 				System.out.println(" Downloads: " + book.getDownloadCount());
 			});
 			System.out.println("--------------------------\n");
+		}
+	}
+
+	// *** NOVO MÉTODO ADICIONADO AQUI ***
+	private void listRegisteredAuthors() {
+		List<Author> authors = authorRepository.findAll();
+
+		if (authors.isEmpty()) {
+			System.out.println("\nNenhum autor cadastrado no banco de dados.\n");
+		} else {
+			System.out.println("\n--- Autores Registrados ---");
+			authors.forEach(author -> {
+				System.out.println("---------------------------");
+				System.out.println("Autor: " + author.getName());
+				System.out.println("Ano de Nascimento: " + author.getBirthYear());
+				System.out.println("Ano de Falecimento: " + author.getDeathYear());
+
+				// Get book titles for this author using a Java Stream
+				List<String> bookTitles = author.getBooks().stream()
+						.map(Book::getTitle)
+						.toList();
+				System.out.println("Livros: " + bookTitles);
+			});
+			System.out.println("---------------------------\n");
 		}
 	}
 }
