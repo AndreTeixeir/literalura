@@ -64,12 +64,11 @@ public class LiteraluraApplication implements CommandLineRunner {
 					listRegisteredBooks();
 					break;
 				case 3:
-					// *** MUDANÇA AQUI ***
 					listRegisteredAuthors();
 					break;
 				case 4:
-					// listAuthorsAliveInYear();
-					System.out.println("Funcionalidade ainda não implementada.");
+					// *** MUDANÇA AQUI ***
+					listAuthorsAliveInYear();
 					break;
 				case 5:
 					// listBooksByLanguage();
@@ -100,7 +99,6 @@ public class LiteraluraApplication implements CommandLineRunner {
 
 		if (apiResponse != null && apiResponse.results() != null && !apiResponse.results().isEmpty()) {
 			BookDTO foundBookDTO = apiResponse.results().getFirst();
-
 			Optional<Book> existingBook = bookRepository.findByTitleContainingIgnoreCase(foundBookDTO.title());
 
 			if (existingBook.isPresent()) {
@@ -124,7 +122,6 @@ public class LiteraluraApplication implements CommandLineRunner {
 				System.out.println(book);
 				System.out.println("--------------------------------\n");
 			}
-
 		} else {
 			System.out.println("Nenhum livro encontrado com este título.");
 		}
@@ -132,7 +129,6 @@ public class LiteraluraApplication implements CommandLineRunner {
 
 	private void listRegisteredBooks() {
 		List<Book> books = bookRepository.findAll();
-
 		if (books.isEmpty()) {
 			System.out.println("\nNenhum livro cadastrado no banco de dados.\n");
 		} else {
@@ -148,10 +144,8 @@ public class LiteraluraApplication implements CommandLineRunner {
 		}
 	}
 
-	// *** NOVO MÉTODO ADICIONADO AQUI ***
 	private void listRegisteredAuthors() {
 		List<Author> authors = authorRepository.findAll();
-
 		if (authors.isEmpty()) {
 			System.out.println("\nNenhum autor cadastrado no banco de dados.\n");
 		} else {
@@ -161,12 +155,33 @@ public class LiteraluraApplication implements CommandLineRunner {
 				System.out.println("Autor: " + author.getName());
 				System.out.println("Ano de Nascimento: " + author.getBirthYear());
 				System.out.println("Ano de Falecimento: " + author.getDeathYear());
-
-				// Get book titles for this author using a Java Stream
 				List<String> bookTitles = author.getBooks().stream()
 						.map(Book::getTitle)
 						.toList();
 				System.out.println("Livros: " + bookTitles);
+			});
+			System.out.println("---------------------------\n");
+		}
+	}
+
+	// *** NOVO MÉTODO ADICIONADO AQUI ***
+	private void listAuthorsAliveInYear() {
+		Scanner scanner = new Scanner(System.in);
+		System.out.println("\nDigite o ano para pesquisar os autores vivos:");
+		var year = scanner.nextInt();
+		scanner.nextLine(); // Consome a quebra de linha
+
+		List<Author> authors = authorRepository.findAuthorsAliveInYear(year);
+
+		if (authors.isEmpty()) {
+			System.out.println("\nNenhum autor vivo encontrado para o ano de " + year + ".\n");
+		} else {
+			System.out.println("\n--- Autores Vivos em " + year + " ---");
+			authors.forEach(author -> {
+				System.out.println("---------------------------");
+				System.out.println("Autor: " + author.getName());
+				System.out.println("Ano de Nascimento: " + author.getBirthYear());
+				System.out.println("Ano de Falecimento: " + author.getDeathYear());
 			});
 			System.out.println("---------------------------\n");
 		}
