@@ -15,6 +15,7 @@ import java.util.InputMismatchException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
+import java.util.stream.Collectors;
 
 public class Principal {
     private final Scanner scanner = new Scanner(System.in);
@@ -22,6 +23,7 @@ public class Principal {
     private final IDataConverter converter = new DataConverter();
     private final BookRepository bookRepository;
     private final AuthorRepository authorRepository;
+    private final String API_BASE_URL = "https://gutendex.com/books/";
 
     public Principal(BookRepository bookRepository, AuthorRepository authorRepository) {
         this.bookRepository = bookRepository;
@@ -43,20 +45,16 @@ public class Principal {
                     
                     0 - Sair
                     """;
-
             System.out.println(menu);
-
-            // *** MUDANÇA AQUI PARA TRATAR ERRO ***
             try {
                 option = scanner.nextInt();
                 scanner.nextLine();
             } catch (InputMismatchException e) {
                 System.out.println("Erro: Por favor, digite um número inteiro válido.");
-                scanner.nextLine(); // Limpa o buffer do scanner
-                option = -1; // Reseta a opção para continuar no loop
-                continue; // Pula para a próxima iteração do loop
+                scanner.nextLine();
+                option = -1;
+                continue;
             }
-
             switch (option) {
                 case 1: searchBookByTitle(); break;
                 case 2: listRegisteredBooks(); break;
@@ -69,45 +67,57 @@ public class Principal {
         }
     }
 
-    // ... (Todos os outros métodos permanecem exatamente iguais) ...
+    // *** MÉTODO REFEITO PARA PEGAR APENAS O PRIMEIRO RESULTADO ***
     private void searchBookByTitle() {
-        System.out.println("Digite o nome do livro ou palavra-chave para a busca:");
+        System.out.println("Digite o título do livro que deseja buscar:");
         var bookTitle = scanner.nextLine();
-        var searchUrl = "https://gutendex.com/books/?search=" + bookTitle.replace(" ", "%20");
+
+        System.out.println("Digite o código do idioma para a busca (ex: en, pt, es, fr) ou deixe em branco para buscar em todos:");
+        var langCode = scanner.nextLine();
+
+        String searchUrl = API_BASE_URL + "?search=" + bookTitle.replace(" ", "%20");
+        if (!langCode.isEmpty()) {
+            searchUrl += "&languages=" + langCode;
+        }
+
         System.out.println("Buscando na API...");
         String jsonResponse = consumer.fetchData(searchUrl);
         ApiResponseDTO apiResponse = converter.getData(jsonResponse, ApiResponseDTO.class);
-        if (apiResponse == null || apiResponse.results() == null || apiResponse.results().isEmpty()) {
-            System.out.println("Nenhum livro encontrado com base na sua busca.");
-            return;
-        }
-        List<BookDTO> titleMatches = apiResponse.results().stream()
-                .filter(b -> b.title().toLowerCase().contains(bookTitle.toLowerCase()))
-                .toList();
-        if (titleMatches.isEmpty()) {
-            System.out.println("Nenhum livro encontrado com o título '" + bookTitle + "'. Tente uma busca mais ampla.");
-            return;
-        }
-        System.out.println("\n--- Livros encontrados com o título '" + bookTitle + "' ---");
-        for (int i = 0; i < titleMatches.size(); i++) {
-            BookDTO book = titleMatches.get(i);
-            System.out.printf("%d - Título: %s (Autor: %s)\n",
-                    i + 1,
-                    book.title(),
-                    book.authors().isEmpty() ? "Desconhecido" : book.authors().getFirst().name());
-        }
-        System.out.println("----------------------------------------------");
-        System.out.println("Digite o número do livro que deseja salvar ou 0 para cancelar:");
-        int choice = scanner.nextInt();
-        scanner.nextLine();
-        if (choice > 0 && choice <= titleMatches.size()) {
-            BookDTO selectedBookDTO = titleMatches.get(choice - 1);
+
+        if (apiResponse != null && apiResponse.results() != null && !apiResponse.results().isEmpty()) {
+            // Pega o primeiro livro da lista e tenta salvá-lo
+            BookDTO selectedBookDTO = apiResponse.results().getFirst();
             saveBook(selectedBookDTO);
         } else {
-            System.out.println("Operação cancelada.");
+            handleBookNotFound(bookTitle, langCode);
         }
     }
 
+    private void handleBookNotFound(String bookTitle, String langCode) {
+        if (langCode.isEmpty()) {
+            System.out.println("Nenhum livro encontrado com o título '" + bookTitle + "'.");
+            return;
+        }
+
+        System.out.println("Nenhum livro encontrado para o título '" + bookTitle + "' no idioma '" + langCode + "'.");
+        System.out.println("Buscando em outros idiomas...");
+
+        String generalSearchUrl = API_BASE_URL + "?search=" + bookTitle.replace(" ", "%20");
+        String jsonResponse = consumer.fetchData(generalSearchUrl);
+        ApiResponseDTO apiResponse = converter.getData(jsonResponse, ApiResponseDTO.class);
+
+        if (apiResponse != null && apiResponse.results() != null && !apiResponse.results().isEmpty()) {
+            List<String> availableLanguages = apiResponse.results().stream()
+                    .flatMap(book -> book.languages().stream())
+                    .distinct()
+                    .collect(Collectors.toList());
+            System.out.println("O livro foi encontrado nos seguintes idiomas: " + availableLanguages);
+        } else {
+            System.out.println("Este livro não foi encontrado em nenhum idioma.");
+        }
+    }
+
+    // ... (Os outros métodos como saveBook, listRegisteredBooks, etc., continuam os mesmos) ...
     private void saveBook(BookDTO bookDTO) {
         Optional<Book> existingBook = bookRepository.findByTitleContainingIgnoreCase(bookDTO.title());
         if (existingBook.isPresent()) {
@@ -118,6 +128,7 @@ public class Principal {
             Author author;
             AuthorDTO authorDTO = bookDTO.authors().getFirst();
             Optional<Author> existingAuthor = authorRepository.findByNameContainingIgnoreCase(authorDTO.name());
+
             if (existingAuthor.isPresent()) {
                 author = existingAuthor.get();
             } else {
