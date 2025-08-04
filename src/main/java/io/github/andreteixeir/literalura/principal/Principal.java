@@ -42,9 +42,13 @@ public class Principal {
                     3 - Listar autores registrados
                     4 - Listar autores vivos em um determinado ano
                     5 - Listar livros em um determinado idioma
+                    6 - Gerar estatísticas do banco de dados
+                    7 - Listar Top 10 livros mais baixados
+                    8 - Buscar autor por nome
                     
                     0 - Sair
                     """;
+
             System.out.println(menu);
             try {
                 option = scanner.nextInt();
@@ -55,69 +59,38 @@ public class Principal {
                 option = -1;
                 continue;
             }
+
             switch (option) {
                 case 1: searchBookByTitle(); break;
                 case 2: listRegisteredBooks(); break;
                 case 3: listRegisteredAuthors(); break;
                 case 4: listAuthorsAliveInYear(); break;
                 case 5: listBooksByLanguage(); break;
+                case 6: showDatabaseStatistics(); break;
+                case 7: listTop10Books(); break;
+                case 8: findAuthorByName(); break;
                 case 0: System.out.println("Saindo do LiterAlura. Até a próxima!"); break;
                 default: System.out.println("Opção inválida. Tente novamente.");
             }
         }
     }
 
-    // *** MÉTODO REFEITO PARA PEGAR APENAS O PRIMEIRO RESULTADO ***
     private void searchBookByTitle() {
         System.out.println("Digite o título do livro que deseja buscar:");
         var bookTitle = scanner.nextLine();
-
-        System.out.println("Digite o código do idioma para a busca (ex: en, pt, es, fr) ou deixe em branco para buscar em todos:");
-        var langCode = scanner.nextLine();
-
-        String searchUrl = API_BASE_URL + "?search=" + bookTitle.replace(" ", "%20");
-        if (!langCode.isEmpty()) {
-            searchUrl += "&languages=" + langCode;
-        }
-
+        var searchUrl = API_BASE_URL + "?search=" + bookTitle.replace(" ", "%20");
         System.out.println("Buscando na API...");
         String jsonResponse = consumer.fetchData(searchUrl);
         ApiResponseDTO apiResponse = converter.getData(jsonResponse, ApiResponseDTO.class);
 
-        if (apiResponse != null && apiResponse.results() != null && !apiResponse.results().isEmpty()) {
-            // Pega o primeiro livro da lista e tenta salvá-lo
-            BookDTO selectedBookDTO = apiResponse.results().getFirst();
-            saveBook(selectedBookDTO);
+        if (apiResponse != null && !apiResponse.results().isEmpty()) {
+            BookDTO foundBookDTO = apiResponse.results().getFirst();
+            saveBook(foundBookDTO);
         } else {
-            handleBookNotFound(bookTitle, langCode);
-        }
-    }
-
-    private void handleBookNotFound(String bookTitle, String langCode) {
-        if (langCode.isEmpty()) {
             System.out.println("Nenhum livro encontrado com o título '" + bookTitle + "'.");
-            return;
-        }
-
-        System.out.println("Nenhum livro encontrado para o título '" + bookTitle + "' no idioma '" + langCode + "'.");
-        System.out.println("Buscando em outros idiomas...");
-
-        String generalSearchUrl = API_BASE_URL + "?search=" + bookTitle.replace(" ", "%20");
-        String jsonResponse = consumer.fetchData(generalSearchUrl);
-        ApiResponseDTO apiResponse = converter.getData(jsonResponse, ApiResponseDTO.class);
-
-        if (apiResponse != null && apiResponse.results() != null && !apiResponse.results().isEmpty()) {
-            List<String> availableLanguages = apiResponse.results().stream()
-                    .flatMap(book -> book.languages().stream())
-                    .distinct()
-                    .collect(Collectors.toList());
-            System.out.println("O livro foi encontrado nos seguintes idiomas: " + availableLanguages);
-        } else {
-            System.out.println("Este livro não foi encontrado em nenhum idioma.");
         }
     }
 
-    // ... (Os outros métodos como saveBook, listRegisteredBooks, etc., continuam os mesmos) ...
     private void saveBook(BookDTO bookDTO) {
         Optional<Book> existingBook = bookRepository.findByTitleContainingIgnoreCase(bookDTO.title());
         if (existingBook.isPresent()) {
@@ -200,6 +173,53 @@ public class Principal {
             books.forEach(b -> System.out.println(
                     "--------------------------\n" + " Título: " + b.getTitle() + "\n" + " Autor: " + b.getAuthor().getName() + "\n" + "--------------------------\n"
             ));
+        }
+    }
+
+    private void showDatabaseStatistics() {
+        long bookCount = bookRepository.count();
+        long authorCount = authorRepository.count();
+        Double averageDownloads = bookRepository.getAverageDownloadCount();
+        Optional<Book> mostDownloadedBook = bookRepository.findTopByOrderByDownloadCountDesc();
+        Optional<Book> leastDownloadedBook = bookRepository.findTopByOrderByDownloadCountAsc();
+        System.out.println("\n--- Estatísticas do Banco de Dados ---");
+        System.out.println("--------------------------------------");
+        System.out.println("Total de livros registrados: " + bookCount);
+        System.out.println("Total de autores registrados: " + authorCount);
+        System.out.printf("Média de downloads por livro: %.2f\n", averageDownloads != null ? averageDownloads : 0.0);
+        mostDownloadedBook.ifPresent(book -> System.out.println("Livro com mais downloads: '" + book.getTitle() + "' (" + book.getDownloadCount() + " downloads)"));
+        leastDownloadedBook.ifPresent(book -> System.out.println("Livro com menos downloads: '" + book.getTitle() + "' (" + book.getDownloadCount() + " downloads)"));
+        System.out.println("--------------------------------------\n");
+    }
+
+    private void listTop10Books() {
+        List<Book> topBooks = bookRepository.findTop10ByOrderByDownloadCountDesc();
+        if (topBooks.isEmpty()) {
+            System.out.println("\nNão há livros suficientes no banco para gerar um Top 10.\n");
+        } else {
+            System.out.println("\n--- Top 10 Livros Mais Baixados ---");
+            topBooks.forEach(b -> System.out.println(
+                    "--------------------------\n" + " Título: " + b.getTitle() + "\n" + " Autor: " + b.getAuthor().getName() + "\n" + " Downloads: " + b.getDownloadCount() + "\n" + "--------------------------\n"
+            ));
+        }
+    }
+
+    private void findAuthorByName() {
+        System.out.println("\nDigite o nome do autor que deseja buscar:");
+        var authorName = scanner.nextLine();
+        Optional<Author> author = authorRepository.findByNameContainingIgnoreCase(authorName);
+        if (author.isPresent()) {
+            Author foundAuthor = author.get();
+            System.out.println("\n--- Autor Encontrado ---");
+            System.out.println("---------------------------");
+            System.out.println("Autor: " + foundAuthor.getName());
+            System.out.println("Ano de Nascimento: " + foundAuthor.getBirthYear());
+            System.out.println("Ano de Falecimento: " + foundAuthor.getDeathYear());
+            List<String> bookTitles = foundAuthor.getBooks().stream().map(Book::getTitle).toList();
+            System.out.println("Livros: " + bookTitles);
+            System.out.println("---------------------------\n");
+        } else {
+            System.out.println("\nNenhum autor encontrado com o nome '" + authorName + "'.\n");
         }
     }
 }
