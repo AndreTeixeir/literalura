@@ -1,50 +1,91 @@
-# LiterAlura 📖
+# LiterAlura — Catálogo de Livros
 
-![Badge Concluído](http://img.shields.io/static/v1?label=STATUS&message=CONCLUÍDO&color=GREEN&style=for-the-badge)
+> Catálogo de livros por console construído com **Java 21 e Spring Boot**, que consome a API pública **Gutendex** e persiste livros e autores em **PostgreSQL**.
+> Desafio do programa Oracle Next Education (ONE) em parceria com a Alura.
 
-## 📄 Descrição do Projeto
-O LiterAlura é um desafio do programa de formação em Java da Alura. O projeto consiste em desenvolver um catálogo de livros interativo que funciona via console. A aplicação consome a API gratuita Gutendex para buscar livros e autores, e persiste esses dados em um banco de dados PostgreSQL para futuras consultas.
+---
 
-## 🛠️ Tecnologias Utilizadas
-- **Java 21:** Linguagem de programação principal.
-- **Spring Boot:** Framework para criação de aplicações Java robustas.
-- **Spring Data JPA:** Para persistência de dados e comunicação com o banco de dados.
-- **PostgreSQL:** Banco de dados relacional para armazenamento dos livros e autores.
-- **Maven:** Gerenciador de dependências e build do projeto.
-- **API Gutendex:** Fonte externa dos dados dos livros.
+## O que é
 
-## ✨ Funcionalidades
-A aplicação oferece um menu interativo com as seguintes opções:
-1.  **Buscar livro pelo título:** Realiza uma busca na API Gutendex e salva o livro no banco de dados, evitando duplicatas.
-2.  **Listar livros registrados:** Mostra todos os livros salvos no banco de dados.
-3.  **Listar autores registrados:** Mostra todos os autores salvos, com seus dados e a lista de livros de cada um.
-4.  **Listar autores vivos em determinado ano:** Filtra e exibe autores que estavam vivos no ano informado.
-5.  **Listar livros em um determinado idioma:** Mostra os livros registrados em um idioma específico (espanhol, inglês, francês ou português).
+Aplicação de linha de comando que busca livros na API Gutendex (baseada no Project Gutenberg), salva os resultados em um banco PostgreSQL e oferece um menu interativo para consultar e analisar o acervo registrado — listagens, filtros por idioma, autores vivos em um ano, estatísticas e ranking de mais baixados.
 
-### Funcionalidades Extras
-- **Gerar estatísticas:** Exibe um resumo com o total de livros e autores, média de downloads, e os livros mais e menos baixados.
-- **Top 10 Livros:** Lista os 10 livros com o maior número de downloads.
-- **Buscar autor por nome:** Permite encontrar um autor específico já registrado no banco de dados.
+## Problema que resolve
 
-## 🚀 Como Executar o Projeto
-Para executar este projeto localmente, siga os passos abaixo:
-1.  **Clone o repositório:**
-    ```bash
-    git clone [https://github.com/AndreTeixeir/literalura.git](https://github.com/AndreTeixeir/literalura.git)
-    ```
-2.  **Configure o Banco de Dados:**
-    * Tenha uma instância do PostgreSQL rodando.
-    * Crie um banco de dados chamado `literalura_db`.
-    * No arquivo `src/main/resources/application.properties`, altere a linha `spring.datasource.password` para a sua senha do PostgreSQL.
-3.  **Execute a Aplicação:**
-    * Abra o projeto em sua IDE Java (ex: IntelliJ IDEA).
-    * Execute a classe `LiteraluraApplication.java`.
+Centraliza a busca e a organização de livros de domínio público em um catálogo local persistente. Em vez de consultar a API repetidamente, o usuário constrói sua própria base pesquisável e extrai informações agregadas (totais, médias, rankings) diretamente do banco.
 
-## 📸 Demonstração
+## Funcionalidades
 
-Assista a um vídeo de demonstração da aplicação em funcionamento:
+O menu interativo (`Principal`) oferece as opções:
 
-[**Vídeo de Demonstração do LiterAlura**](https://youtu.be/YsaiJOJ07uE)
+1. Buscar livro pelo título (consulta a Gutendex e salva no banco, sem duplicar)
+2. Listar livros registrados
+3. Listar autores registrados (com seus livros)
+4. Listar autores vivos em um determinado ano
+5. Listar livros por idioma (es, en, fr, pt)
+6. Gerar estatísticas do banco (totais, média de downloads, livro mais e menos baixado)
+7. Listar o Top 10 livros mais baixados
+8. Buscar autor por nome
 
-## 👨‍💻 Autor
-[André Teixeira](https://github.com/AndreTeixeir)
+## Arquitetura
+
+Aplicação Spring Boot em camadas que integra API externa e banco relacional:
+
+```
+Usuário (console)
+      │
+      ▼
+Principal  (menu interativo)
+      │
+      ├──► ApiConsumer ──► Gutendex API ──► DataConverter (JSON → DTOs)
+      │
+      └──► BookRepository / AuthorRepository  (Spring Data JPA)
+                                   │
+                                   ▼
+                             PostgreSQL
+```
+
+- **`Principal`** — orquestra o menu e as operações.
+- **`ApiConsumer`** — cliente HTTP (`java.net.http.HttpClient`) que busca dados na Gutendex.
+- **`DataConverter` / DTOs** — desserializam o JSON da API em objetos.
+- **`Book` / `Author`** — entidades JPA persistidas no PostgreSQL.
+- **`BookRepository` / `AuthorRepository`** — repositórios Spring Data JPA, incluindo consultas derivadas e JPQL (média de downloads, autores vivos em um ano, Top 10).
+
+## Stack
+
+| Camada | Tecnologias |
+|---|---|
+| Linguagem | Java 21 |
+| Framework | Spring Boot 3.5.4 |
+| Persistência | Spring Data JPA / Hibernate |
+| Banco | PostgreSQL |
+| Build | Maven (Maven Wrapper incluído) |
+| API externa | Gutendex |
+
+## Como rodar
+
+Pré-requisitos: JDK 21 e uma instância do PostgreSQL em execução.
+
+```bash
+# 1. Clonar o repositório
+git clone https://github.com/AndreTeixeir/literalura.git
+cd literalura
+
+# 2. Criar o banco de dados no PostgreSQL
+#    CREATE DATABASE literalura_db;
+
+# 3. Ajustar as credenciais em src/main/resources/application.properties
+#    (spring.datasource.username / spring.datasource.password)
+
+# 4. Executar a aplicação com o Maven Wrapper
+./mvnw spring-boot:run
+```
+
+Por padrão, `application.properties` aponta para `jdbc:postgresql://localhost:5432/literalura_db` com usuário `postgres`. O Hibernate está com `ddl-auto=update`, criando/atualizando as tabelas automaticamente.
+
+## Demonstração
+
+Vídeo de demonstração da aplicação: https://youtu.be/YsaiJOJ07uE
+
+## Licença
+
+Distribuído sob a licença MIT. Ver arquivo [LICENSE](LICENSE).
